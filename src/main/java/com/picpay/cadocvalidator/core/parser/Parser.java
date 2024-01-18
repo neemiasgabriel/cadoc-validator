@@ -1,5 +1,5 @@
 package com.picpay.cadocvalidator.core.parser;
 
-public interface Parser {
+public sealed interface Parser permits ParserImpl {
   void processFile();
 }

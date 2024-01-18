@@ -25,42 +25,27 @@ public final class TagVisitorImpl implements TagVisitor {
   private final GarValidator garValidator;
 
   @Override
-  public Doc3040 visitDoc3040(final XMLEvent element) {
-    final var doc3040 = new Doc3040(element);
+  public void visitDoc3040(final Doc3040 doc3040) {
     doc3040Validator.accept(doc3040);
-    return doc3040;
   }
 
   @Override
-  public Cli visitCli(final XMLEvent cliEvent, final Doc3040 doc3040) {
-    final var cli = new Cli(cliEvent, doc3040);
+  public void visitCli(final Cli cli) {
     cliValidator.accept(cli);
-    return cli;
   }
 
   @Override
-  public Op visitOp(final XMLEvent opEvent, final Cli cli) {
-    final var op = new Op(opEvent, cli);
+  public void visitOp(final Op op) {
     opValidator.accept(op);
-    op.setCli(cli);
-    return op;
   }
 
   @Override
-  public Venc visitVenc(final XMLEvent vencEvent, final Op op) {
-    final var venc = new Venc(vencEvent, op);
+  public void visitVenc(final Venc venc) {
     vencValidator.accept(venc);
-    venc.setOp(op);
-    op.setVenc(venc);
-    return venc;
   }
 
   @Override
-  public Gar visitGar(final XMLEvent garEvent, final Op op) {
-    final var gar = new Gar(garEvent, op);
-    gar.setOp(op);
-    op.setGar(gar);
+  public void visitGar(final Gar gar) {
     garValidator.accept(gar);
-    return gar;
   }
 }

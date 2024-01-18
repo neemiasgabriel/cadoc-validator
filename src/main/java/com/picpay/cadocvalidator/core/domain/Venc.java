@@ -1,5 +1,6 @@
 package com.picpay.cadocvalidator.core.domain;
 
+import com.picpay.cadocvalidator.core.parser.TagVisitor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -59,5 +60,10 @@ public final class Venc extends Tag {
     this.v170 = getAttribute(V170);
     this.v175 = getAttribute(V175);
     this.v180 = getAttribute(V180);
+  }
+
+  @Override
+  public void accept(final TagVisitor visitor) {
+    visitor.visitVenc(this);
   }
 }

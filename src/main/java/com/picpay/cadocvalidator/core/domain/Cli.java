@@ -1,5 +1,6 @@
 package com.picpay.cadocvalidator.core.domain;
 
+import com.picpay.cadocvalidator.core.parser.TagVisitor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -41,5 +42,10 @@ public final class Cli extends Tag {
     this.iniRelactCli = getAttribute(INI_RELACT_CLI);
     this.fatAnual = getAttribute(FAT_ANUAL);
     this.classCli = getAttribute(CLASS_CLI);
+  }
+
+  @Override
+  public void accept(TagVisitor visitor) {
+    visitor.visitCli(this);
   }
 }

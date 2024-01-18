@@ -2,7 +2,9 @@ package com.picpay.cadocvalidator.core.parser.validators;
 
 import com.picpay.cadocvalidator.core.domain.Cli;
 import com.picpay.cadocvalidator.core.exceptions.ParserException;
+import com.picpay.cadocvalidator.core.log.ValidatorLog;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.regex.Pattern;
@@ -11,41 +13,57 @@ import static com.picpay.cadocvalidator.core.common.Constants.CNPJ_REGEX;
 import static com.picpay.cadocvalidator.core.common.Constants.CPF_REGEX;
 import static com.picpay.cadocvalidator.core.common.Constants.MINIMUM_WAGE;
 import static com.picpay.cadocvalidator.core.common.Constants.MONEY_REGEX;
+import static com.picpay.cadocvalidator.core.enums.LogType.ERROR;
+import static com.picpay.cadocvalidator.core.enums.LogType.INFO;
+import static com.picpay.cadocvalidator.core.enums.TagType.CLI;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
-public final class CliValidator implements Validator<Cli> {
+public final class CliValidator implements Validator<Cli>, ValidatorLog {
   private final DateValidator dateValidator;
 
   @Override
   public void accept(final Cli cli) {
-    final var tp = validateTp(cli.getTp());
-    final var porteCli = validatePorteCli(tp, cli.getPorteCli());
+    if (cli.getDoc3040() == null) {
+      throw new ParserException("A Tag Doc3040 não pode estar nula. O empilhamento está errado");
+    }
 
+    final var tp = validateTp(cli.getTp());
+
+    if (tp == null) {
+      log.error(log(ERROR, CLI, "Não é possível validar o Porte Cli, o Faturamento Anual e o Cd pois o Tp, da tag Cli, está nulo"));
+    }
+
+    final var porteCli = validatePorteCli(tp, cli.getPorteCli());
     validateFatAnual(tp, porteCli, cli.getFatAnual());
 
     validateCd(cli.getCd(), tp);
     validateAutorzc(cli.getAutorzc());
     validateIniRelactCli(cli.getIniRelactCli());
     validateClassCli(cli.getClassCli());
+
+    log.info(log(INFO, CLI, "Os atributo do Cli foram validados"));
   }
 
   // TP = Tipo Pessoa
   private Integer validateTp(final String tp) {
     if (tp == null) {
-      throw new ParserException("O Tp, da tag Cli, não pode ser nulo");
+      log.error(log(ERROR, CLI, "O Tp, da tag Cli, não pode ser nulo"));
+      return null;
     }
 
     try {
       final var intValue = Integer.parseInt(tp);
 
       if (!(intValue > 0 && intValue < 7)) {
-        throw new ParserException("O código do Tp, da tag Cli, deve ser estar no intervalo de 1 à 6");
+        log.error(log(ERROR, CLI, "O código do Tp, da tag Cli, deve ser estar no intervalo de 1 à 6"));
       }
 
       return intValue;
     } catch (NumberFormatException e) {
-      throw new ParserException("O código do Tp, da tag Cli, não é um número");
+      log.error(log(ERROR, CLI, "O código do Tp, da tag Cli, não é um número"));
+      return null;
     }
   }
 
@@ -58,23 +76,25 @@ public final class CliValidator implements Validator<Cli> {
     };
 
     if (!result) {
-      throw new ParserException("O atributo Cd, da tag Cli, é inválido");
+      log.error(log(ERROR, CLI, "O atributo Cd, da tag Cli, é inválido"));
     }
   }
 
   private void validateAutorzc(final String autorzc) {
     if (autorzc == null) {
-      throw new ParserException("O atributo autorzc, da tag Cli, não pode ser nulo");
+      log.error(log(ERROR, CLI, "O atributo autorzc, da tag Cli, não pode ser nulo"));
+      return;
     }
 
     if (!(autorzc.equals("S") || autorzc.equals("N"))) {
-      throw new ParserException("O atributo Autorzc, da tag Cli, é inválido");
+      log.error(log(ERROR, CLI, "O atributo Autorzc, da tag Cli, é inválido"));
     }
   }
 
   private Integer validatePorteCli(final Integer tp, final String porteCli) {
     if (porteCli == null) {
-      throw new ParserException("O atributo PorteCli, da tag Cli, não pode ser nulo");
+      log.error(log(ERROR, CLI, "O atributo PorteCli, da tag Cli, não pode ser nulo"));
+      return null;
     }
 
     try {
@@ -91,54 +111,58 @@ public final class CliValidator implements Validator<Cli> {
         return intValue;
       }
 
-      throw new ParserException("O PorteCli informado, na tag Cli, é inválido");
+      log.error(log(ERROR, CLI, "O PorteCli informado, na tag Cli, é inválido"));
+      return null;
     } catch (NumberFormatException e) {
-      throw new ParserException("O código do PorteCli, da tag Cli, não é um número");
+      log.error(log(ERROR, CLI, "O código do PorteCli, da tag Cli, não é um número"));
+      return null;
     }
   }
 
   private void validateIniRelactCli(final String iniRelactCli) {
     if (iniRelactCli == null) {
-      throw new ParserException("O atributo InitRelactCli, da tag Cli, não pode ser nulo");
+      log.error(log(ERROR, CLI, "O atributo InitRelactCli, da tag Cli, não pode ser nulo"));
     }
 
     if (!dateValidator.isYearMonthDay(iniRelactCli)) {
-      throw new ParserException("O atributo InitRelactCli, da tag Cli, está com a data inválida");
+      log.error(log(ERROR, CLI, "O atributo InitRelactCli, da tag Cli, está com a data inválida"));
     }
   }
 
   private void validateFatAnual(final Integer tp, final Integer porteCli, final String fatAnual) {
     if (fatAnual == null) {
-      throw new ParserException("O atributo FatAnual, da tag Cli, não pode ser nulo");
+      log.error(log(ERROR, CLI, "O atributo FatAnual, da tag Cli, não pode ser nulo"));
+      return;
     }
 
     if (!fatAnual.isEmpty() && !Pattern.matches(MONEY_REGEX, fatAnual)) {
-      throw new ParserException("O atributo FatAnual, da tag Cli, é inválido");
+      log.error(log(ERROR, CLI, "O atributo FatAnual, da tag Cli, é inválido"));
     }
 
     try {
       final var income = Float.parseFloat(fatAnual);
       final var result = switch (tp) {
-        case 1 -> validateFatAnualPJ(porteCli, income);
-        case 2 -> validateFatAnualPF(porteCli, income);
+        case 1 -> validateFatAnualPF(porteCli, income);
+        case 2 -> validateFatAnualPJ(porteCli, income);
         default -> false;
       };
 
       if (!result) {
-        throw new ParserException("O FatAnual, da tag Cli, não é equivalente ao porte indicado");
+        log.error(log(ERROR, CLI, "O FatAnual, da tag Cli, não é equivalente ao porte indicado"));
       }
     } catch (NumberFormatException e) {
-      throw new ParserException("O código do FatAnual, da tag Cli, não é um número");
+      log.error(log(ERROR, CLI, "O código do FatAnual, da tag Cli, não é um número"));
     }
   }
 
   private void validateClassCli(final String classCli) {
     if (classCli == null) {
-      throw new ParserException("O atributo ClassCli, da tag Cli, não pode ser nulo");
+      log.error(log(ERROR, CLI, "O atributo ClassCli, da tag Cli, não pode ser nulo"));
+      return;
     }
 
     if (!validateClassification(classCli)) {
-      throw new ParserException("O atributo ClassCli, da tag Cli, não está dentro das classificações possíveis");
+      log.error(log(ERROR, CLI, "O atributo ClassCli, da tag Cli, não está dentro das classificações possíveis"));
     }
   }
 

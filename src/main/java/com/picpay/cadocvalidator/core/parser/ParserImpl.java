@@ -7,7 +7,10 @@ import com.picpay.cadocvalidator.core.domain.Op;
 import com.picpay.cadocvalidator.core.domain.Tag;
 import com.picpay.cadocvalidator.core.domain.Venc;
 import com.picpay.cadocvalidator.core.exceptions.ParserException;
+import com.picpay.cadocvalidator.core.log.SimpleLog;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -17,32 +20,33 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.XMLEvent;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Stack;
 import java.util.concurrent.TimeUnit;
 
+import static com.picpay.cadocvalidator.core.common.Constants.CLI;
+import static com.picpay.cadocvalidator.core.common.Constants.DOC_3040;
+import static com.picpay.cadocvalidator.core.common.Constants.GAR;
+import static com.picpay.cadocvalidator.core.common.Constants.OP;
+import static com.picpay.cadocvalidator.core.common.Constants.VENC;
+import static com.picpay.cadocvalidator.core.enums.LogType.ERROR;
+import static com.picpay.cadocvalidator.core.enums.LogType.INFO;
+
+@Slf4j
 @Component
 @RequiredArgsConstructor
-public final class ParserImpl implements Parser {
-  private static final String DOC_3040 = "Doc3040";
-  private static final String CLI = "Cli";
-  private static final String OP = "Op";
-  private static final String VENC = "Venc";
-  private static final String GAR = "Gar";
-
+public final class ParserImpl implements Parser, SimpleLog {
   private final TagVisitor tagVisitor;
+  private final TagStack stack;
 
   @Override
   @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.HOURS)
   public void processFile() {
-    final var resource = new ClassPathResource("cadoc3040.xml");
+    final var resource = new ClassPathResource("Exemplo3040.xml");
     final var xmlInputFactory = XMLInputFactory.newInstance();
 
     try {
       final var reader = xmlInputFactory.createXMLEventReader(new FileInputStream(resource.getFile()));
 
       if (!reader.hasNext()) return;
-
-      final var stack = new Stack<Tag>();
 
       XMLEvent nextEvent;
       Doc3040 doc3040 = null;
@@ -58,28 +62,28 @@ public final class ParserImpl implements Parser {
 
           switch (tagName) {
             case DOC_3040:
-              beginTagMessage(tagName);
-              doc3040 = tagVisitor.visitDoc3040(nextEvent);
+              doc3040 = new Doc3040(nextEvent);
+              doc3040.accept(tagVisitor);
               stack.push(doc3040);
               break;
             case CLI:
-              beginTagMessage(tagName);
-              cli = tagVisitor.visitCli(nextEvent, doc3040);
+              cli = new Cli(nextEvent, doc3040);
+              cli.accept(tagVisitor);
               stack.push(cli);
               break;
             case OP:
-              beginTagMessage(tagName);
-              op = tagVisitor.visitOp(nextEvent, cli);
+              op = new Op(nextEvent, cli);
+              op.accept(tagVisitor);
               stack.push(op);
               break;
             case VENC:
-              beginTagMessage(tagName);
-              final var venc = tagVisitor.visitVenc(nextEvent, op);
+              final var venc = new Venc(nextEvent, op);
+              venc.accept(tagVisitor);
               stack.push(venc);
               break;
             case GAR:
-              beginTagMessage(tagName);
-              final var gar = tagVisitor.visitGar(nextEvent, op);
+              final var gar = new Gar(nextEvent, op);
+              gar.accept(tagVisitor);
               stack.push(gar);
               break;
             default:
@@ -92,87 +96,47 @@ public final class ParserImpl implements Parser {
           // Valida se os elementos estão seguindo o padrão de empilhamento
           switch (tagName) {
             case DOC_3040:
-              final var docExpr = stack.pop();
-
-              if (docExpr instanceof Doc3040) {
-                endTagMessage(tagName);
-              } else {
-                throw new ParserException(unexpectedTag(tagName));
-              }
+              stack.pop(DOC_3040);
+              doc3040 = null;
               break;
             case CLI:
-              final var cliExp = stack.pop();
-
-              if (cliExp instanceof Cli) {
-                endTagMessage(tagName);
-              } else {
-                throw new ParserException(unexpectedTag(tagName));
-              }
+              stack.pop(CLI);
+              cli = null;
               break;
             case OP:
-              final var opTag = stack.pop();
-
-              if (opTag instanceof Op) {
-                endTagMessage(tagName);
-              } else {
-                throw new ParserException(unexpectedTag(tagName));
-              }
-
+              stack.pop(OP);
+              op = null;
               break;
             case VENC:
-              if (stack.pop() instanceof Venc venc) {
+              if (stack.pop(VENC) instanceof Venc venc) {
                 final var result = checkOp(stack.peek(), venc);
 
-                if (result) {
-                  endTagMessage(tagName);
-                } else {
-                  throw new ParserException(unexpectedTag(tagName));
+                if (!result) {
+                  unexpectedTag(tagName);
                 }
-              } else {
-                throw new ParserException(unexpectedTag(tagName));
               }
 
               break;
             case GAR:
-              if (stack.pop() instanceof Gar gar) {
+              if (stack.pop(GAR) instanceof Gar gar) {
                 final var result = checkOp(stack.peek(), gar);
 
-                if (result) {
-                  endTagMessage(tagName);
-                } else {
-                  throw new ParserException(unexpectedTag(tagName));
+                if (!result) {
+                  unexpectedTag(tagName);
                 }
-              } else {
-                throw new ParserException(unexpectedTag(tagName));
               }
 
               break;
             default:
-              System.out.println("Tag Pulada: " + tagName);
+              log.info("Tag Pulada: " + tagName);
           }
         }
       }
 
-      System.out.println("Fim do processamento");
-    } catch (IOException | XMLStreamException e) {
-      throw new RuntimeException(e);
+      log.info(INFO.type() + "Fim do processamento");
+    } catch (XMLStreamException | IOException e) {
+      throw new ParserException(e.getMessage());
     }
-  }
-
-  private String unexpectedTag(final String tagName) {
-    return "Tag " + tagName + " não esperada";
-  }
-
-  private void beginTagMessage(final String tagName) {
-    System.out.println("Tag Aberta: " + tagName);
-  }
-
-  private void endTagMessage(final String tagName) {
-    System.out.println("Tag Fechada: " + tagName);
-  }
-
-  private void ignoredTag(final String tagName) {
-    System.out.println("Tag ignorada: " + tagName);
   }
 
   private boolean checkOp(final Tag stackTop, final Tag currentTag) {
@@ -180,6 +144,17 @@ public final class ParserImpl implements Parser {
       return true;
     }
 
-    throw new ParserException("Tag não esperada dentro da tag Op");
+    final var message = "Tag não esperada dentro da tag Op";
+
+    log.error(log(ERROR, message));
+    throw new ParserException(message);
+  }
+
+  private void unexpectedTag(final String tagName) {
+    log.error(log(ERROR, "Tag " + tagName + " não esperada."));
+  }
+
+  private void ignoredTag(final String tagName) {
+    log.info(log(INFO, "Tag ignorada: " + tagName));
   }
 }

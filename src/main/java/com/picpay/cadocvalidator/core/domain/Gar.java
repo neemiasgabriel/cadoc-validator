@@ -1,5 +1,6 @@
 package com.picpay.cadocvalidator.core.domain;
 
+import com.picpay.cadocvalidator.core.parser.TagVisitor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -25,7 +26,13 @@ public final class Gar extends Tag {
   public Gar(final XMLEvent event, final Op op) {
     this.event = event;
     this.op = op;
+
     this.tp = getAttribute(TP);
     this.vlrOrig = getAttribute(VLR_ORIG);
+  }
+
+  @Override
+  public void accept(final TagVisitor visitor) {
+    visitor.visitGar(this);
   }
 }

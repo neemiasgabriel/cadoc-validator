@@ -1,5 +1,6 @@
 package com.picpay.cadocvalidator.core.domain;
 
+import com.picpay.cadocvalidator.core.parser.TagVisitor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -76,5 +77,10 @@ public final class Op extends Tag {
     this.dtaProxParcela = getAttribute(DTA_PROX_PARCELA);
     this.vlrProxParcela = getAttribute(VLR_PROX_PARCELA);
     this.qtdParcelas = getAttribute(QTD_PARCELAS);
+  }
+
+  @Override
+  public void accept(final TagVisitor visitor) {
+    visitor.visitOp(this);
   }
 }

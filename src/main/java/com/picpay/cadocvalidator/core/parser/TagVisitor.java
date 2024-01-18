@@ -9,9 +9,9 @@ import com.picpay.cadocvalidator.core.domain.Venc;
 import javax.xml.stream.events.XMLEvent;
 
 public interface TagVisitor {
-  Doc3040 visitDoc3040(final XMLEvent element);
-  Cli visitCli(final XMLEvent cliEvent, final Doc3040 doc3040);
-  Op visitOp(final XMLEvent opEvent, final Cli cli);
-  Venc visitVenc(final XMLEvent vencEvent, final Op op);
-  Gar visitGar(final XMLEvent garEvent, final Op op);
+  void visitDoc3040(final Doc3040 doc3040);
+  void visitCli(final Cli cli);
+  void visitOp(final Op op);
+  void visitVenc(final Venc gar);
+  void visitGar(final Gar gar);
 }

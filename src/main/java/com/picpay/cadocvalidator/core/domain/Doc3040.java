@@ -1,5 +1,6 @@
 package com.picpay.cadocvalidator.core.domain;
 
+import com.picpay.cadocvalidator.core.parser.TagVisitor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -45,5 +46,10 @@ public final class Doc3040 extends Tag {
     this.emailResp = getAttribute(EMAIL_RESP);
     this.telResp = getAttribute(TEL_RESP);
     this.totalCli = getAttribute(TOTAL_CLI);
+  }
+
+  @Override
+  public void accept(final TagVisitor visitor) {
+    visitor.visitDoc3040(this);
   }
 }
